@@ -8,6 +8,7 @@ import org.springframework.test.annotation.Rollback;
 import org.springframework.transaction.annotation.Transactional;
 import study.datajpa.entity.Member;
 
+import java.awt.*;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -60,5 +61,31 @@ class MemberJpaRepositoryTest {
         memberJpaRepository.delete(findMember2);
         long deleteCount = memberJpaRepository.count();
         assertThat(deleteCount).isEqualTo(0);
+    }
+
+    @Test
+    void findByUsernameAndAgeGreaterThen() {
+        Member member1 = new Member("AAA", 10);
+        Member member2 = new Member("AAA", 20);
+        memberJpaRepository.save(member1);
+        memberJpaRepository.save(member2);
+
+        List<Member> result = memberJpaRepository.findByUsernameAndAgeGreaterThen("AAA", 15);
+
+        assertThat(result.get(0).getUsername()).isEqualTo("AAA");
+        assertThat(result.get(0).getAge()).isEqualTo(20);
+        assertThat(result.size()).isEqualTo(1);
+    }
+
+    @Test
+    void testNamedQuery() {
+        Member member1 = new Member("AAA", 10);
+        Member member2 = new Member("AAA", 20);
+        memberJpaRepository.save(member1);
+        memberJpaRepository.save(member2);
+
+        List<Member> result = memberJpaRepository.findByUsername("AAA");
+        Member member = result.get(0);
+        assertThat(member.getUsername()).isEqualTo("AAA");
     }
 }

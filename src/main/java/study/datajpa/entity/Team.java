@@ -3,6 +3,7 @@ package study.datajpa.entity;
 import lombok.*;
 
 import javax.persistence.*;
+import java.util.ArrayList;
 import java.util.List;
 
 @ToString(of = {"id", "name"})
@@ -16,7 +17,7 @@ public class Team {
     private String name;
 
     @OneToMany(mappedBy = "team")
-    private List<Member> members;
+    private List<Member> members = new ArrayList<>();
 
     @Builder
     public Team(String name) {
