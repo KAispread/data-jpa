@@ -1,14 +1,19 @@
 package study.datajpa.repository;
 
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.domain.*;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.transaction.annotation.Transactional;
 import study.datajpa.dto.MemberDto;
 import study.datajpa.entity.Member;
 import study.datajpa.entity.Team;
 
+import javax.persistence.EntityManager;
+import javax.persistence.PersistenceContext;
 import java.util.Arrays;
 import java.util.List;
 
@@ -16,12 +21,21 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
 @Transactional
-@Rollback(value = false)
 class MemberRepositoryTest {
     @Autowired
     MemberRepository memberRepository;
+
     @Autowired
     TeamRepository teamRepository;
+
+    @PersistenceContext
+    EntityManager em;
+
+    @BeforeEach
+    public void clear() {
+        memberRepository.deleteAll();
+        teamRepository.deleteAll();
+    }
 
     @Test
     void testMember() {
@@ -142,5 +156,83 @@ class MemberRepositoryTest {
         for (Member member : result) {
             System.out.println("member = " + member);
         }
+    }
+
+    @Test
+    void returnType() {
+        Member member1 = new Member("AAA", 10);
+        Member member2 = new Member("BAB", 20);
+        memberRepository.save(member1);
+        memberRepository.save(member2);
+
+        // 데이터가 없어도 Null 이 아닌 Empty Collection 을 반환
+        List<Member> aaa = memberRepository.findListByUsername("AAA");
+
+        // 데이터가 없다면 Null 반환
+        // 기존 JPA 는 데이터가 없다면 NoResultException 발생
+        Member aaa1 = memberRepository.findMemberByUsername("AAA");
+
+        Member aaa2 = memberRepository.findOptionalByUsername("AAA").orElseThrow();
+    }
+
+    @Test
+    void paging() {
+        memberRepository.save(new Member("member1", 10));
+        memberRepository.save(new Member("member2", 10));
+        memberRepository.save(new Member("member3", 10));
+        memberRepository.save(new Member("member4", 10));
+        memberRepository.save(new Member("member5", 10));
+
+        int age = 10;
+        int offset = 0;
+        int limit = 3;
+
+        // sort 조건 / username 필드를 기준으로 정렬하여 0번부터 3개를 반환
+        Pageable pageRequest = PageRequest.of(offset, limit, Sort.by(Sort.Direction.DESC, "username"));
+
+        // when
+        Page<Member> page = memberRepository.findByAge(age, pageRequest);
+        Slice<Member> slice = memberRepository.findSliceByAge(age, pageRequest); // Slice 는 TotalCount 쿼리를 날리지 않음
+
+        // stream map 사용 가능 -> DTO 로 쉽게 변환할 수 있다.
+        Page<MemberDto> map = page.map(member -> new MemberDto(member.getId(), member.getUsername()));
+
+        //then
+        List<Member> members = page.getContent();
+
+        // 전체 페이지 개수
+        assertThat(page.getTotalPages()).isEqualTo(2);
+        // 현제 페이지
+        assertThat(page.getNumber()).isEqualTo(0);
+        // 전체 요소 개수
+        assertThat(page.getTotalElements()).isEqualTo(5);
+        // 첫 페이지인지
+        assertThat(page.isFirst()).isEqualTo(true);
+        // 다음 페이지가 있는지
+        assertThat(page.hasNext()).isEqualTo(true);
+    }
+    
+    @Test
+    void bulkUpdate() {
+        memberRepository.save(new Member("member1", 10));
+        memberRepository.save(new Member("member2", 19));
+        memberRepository.save(new Member("member3", 21));
+        memberRepository.save(new Member("member4", 26));
+        memberRepository.save(new Member("member5", 52));
+
+        // when
+        // 벌크 연산 -> DB에 SQL 벌크 연산을 날려버림 -> 영속성 컨텍스트에는 반영되지 않음
+        int result = memberRepository.bulkAgePlus(20);
+
+        // 벌크 연산 후엔 가급적 영속성 컨텍스트를 비워야함!!
+        em.flush();
+        em.clear();
+
+        // DB 에서 다시 조회
+        List<Member> member = memberRepository.findByUsername("member5");
+        Member member5 = member.get(0);
+        System.out.println("member5 = " + member5);
+
+        assertThat(result).isEqualTo(3);
     }
 }
