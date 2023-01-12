@@ -13,6 +13,7 @@ import javax.persistence.*;
         name = "Member.findByUsername",
         query="select m from Member m where m.username = :username"
 )
+@NamedEntityGraph(name = "Member.all", attributeNodes = @NamedAttributeNode("team"))
 public class Member {
     @Id @GeneratedValue
     @Column(name = "member_id")
@@ -43,5 +44,9 @@ public class Member {
         if (team != null) {
             this.team = team;
         }
+    }
+
+    public void setUsername(String username) {
+        this.username = username;
     }
 }
